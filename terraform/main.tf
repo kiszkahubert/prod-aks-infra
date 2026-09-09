@@ -1,54 +1,54 @@
 data "azurerm_client_config" "current" {}
 
 resource "random_string" "suffix" {
-  length = 4
+  length  = 4
   special = false
-  upper = false
+  upper   = false
 }
 
 resource "azurerm_resource_group" "rg" {
-  name     = "rg-dev-weu-01"
-  location = "West US"
+  name     = "rg-${local.base_sufix}"
+  location = "West Europe"
 }
 
 resource "azurerm_virtual_network" "vnet-01" {
-  name                = "vnet-dev-weu-01"
+  name                = "vnet-${local.base_sufix}"
   resource_group_name = azurerm_resource_group.rg.name
   location            = azurerm_resource_group.rg.location
   address_space       = ["10.0.0.0/16"]
 }
 
 resource "azurerm_subnet" "aks-subnet" {
-  name                 = "aks-subnet-dev-weu-01"
+  name                 = "aks-subnet-${local.base_sufix}"
   resource_group_name  = azurerm_resource_group.rg.name
   virtual_network_name = azurerm_virtual_network.vnet-01.name
   address_prefixes     = ["10.0.1.0/24"]
 }
 
 resource "azurerm_subnet" "bastion-subnet" {
-  name                 = "bastion-subnet-dev-weu-01"
+  name                 = "bastion-subnet-${local.base_sufix}"
   resource_group_name  = azurerm_resource_group.rg.name
   virtual_network_name = azurerm_virtual_network.vnet-01.name
   address_prefixes     = ["10.0.2.0/28"]
 }
 
-# Idea was to create those subnets resources in them and use Private Endpoints but cost is high and also ACR supports private communication only in highest SKU
-# resource "azurerm_subnet" "acr-subnet" {
-#   name                 = "acr-subnet-dev-weu-01"
-#   resource_group_name  = azurerm_resource_group.rg.name
-#   virtual_network_name = azurerm_virtual_network.vnet-01.name
-#   address_prefixes     = ["10.0.3.0/28"]
-# }
-
 resource "azurerm_subnet" "kv-subnet" {
-  name                 = "kv-subnet-dev-weu-01"
+  name                 = "kv-subnet-${local.base_sufix}"
   resource_group_name  = azurerm_resource_group.rg.name
   virtual_network_name = azurerm_virtual_network.vnet-01.name
   address_prefixes     = ["10.0.4.0/28"]
 }
 
+# Idea was to create those subnets resources in them and use Private Endpoints but cost is high and also ACR supports private communication only in highest SKU
+# resource "azurerm_subnet" "acr-subnet" {
+#   name                 = "acr-subnet-${local.base_sufix}"
+#   resource_group_name  = azurerm_resource_group.rg.name
+#   virtual_network_name = azurerm_virtual_network.vnet-01.name
+#   address_prefixes     = ["10.0.3.0/28"]
+# }
+
 resource "azurerm_network_security_group" "bastion-nsg" {
-  name                = "bastion-nsg-dev-weu-01"
+  name                = "bastion-nsg-${local.base_sufix}"
   resource_group_name = azurerm_resource_group.rg.name
   location            = azurerm_resource_group.rg.location
 
@@ -61,18 +61,6 @@ resource "azurerm_network_security_group" "bastion-nsg" {
     source_port_range          = "*"
     destination_port_range     = "22"
     source_address_prefixes    = var.admin_ips
-    destination_address_prefix = "*"
-  }
-
-  security_rule {
-    name                       = "explicit-deny-all-inbound"
-    priority                   = 1000
-    direction                  = "Inbound"
-    access                     = "Deny"
-    protocol                   = "*"
-    source_port_range          = "*"
-    destination_port_range     = "*"
-    source_address_prefix      = "*"
     destination_address_prefix = "*"
   }
 
@@ -109,7 +97,7 @@ resource "azurerm_network_security_group" "bastion-nsg" {
     source_port_range          = "*"
     destination_port_range     = "53"
     source_address_prefix      = "*"
-    destination_address_prefix = "*"
+    destination_address_prefix = "168.63.129.16"
   }
 
   security_rule {
@@ -125,7 +113,7 @@ resource "azurerm_network_security_group" "bastion-nsg" {
   }
 
   security_rule {
-    name                       = "explicit-deny-all-outbound"
+    name                       = "deny-all-outbound"
     priority                   = 1000
     direction                  = "Outbound"
     access                     = "Deny"
@@ -135,15 +123,22 @@ resource "azurerm_network_security_group" "bastion-nsg" {
     source_address_prefix      = "*"
     destination_address_prefix = "*"
   }
-}
 
-resource "azurerm_subnet_network_security_group_association" "bastion_nsg_asc" {
-  subnet_id                 = azurerm_subnet.bastion-subnet.id
-  network_security_group_id = azurerm_network_security_group.bastion-nsg.id
+  security_rule {
+    name                       = "explicit-deny-all-inbound"
+    priority                   = 1000
+    direction                  = "Inbound"
+    access                     = "Deny"
+    protocol                   = "*"
+    source_port_range          = "*"
+    destination_port_range     = "*"
+    source_address_prefix      = "*"
+    destination_address_prefix = "*"
+  }
 }
 
 resource "azurerm_network_security_group" "aks-nsg" {
-  name                = "aks-nsg-dev-weu-01"
+  name                = "aks-nsg-${local.base_sufix}"
   resource_group_name = azurerm_resource_group.rg.name
   location            = azurerm_resource_group.rg.location
 
@@ -164,9 +159,9 @@ resource "azurerm_network_security_group" "aks-nsg" {
     priority                   = 110
     direction                  = "Inbound"
     access                     = "Allow"
-    protocol                   = "*"
+    protocol                   = "Tcp"
     source_port_range          = "*"
-    destination_port_range     = "*"
+    destination_port_range     = "22"
     source_address_prefix      = azurerm_subnet.bastion-subnet.address_prefixes[0]
     destination_address_prefix = "*"
   }
@@ -182,6 +177,23 @@ resource "azurerm_network_security_group" "aks-nsg" {
     source_address_prefix      = "AzureLoadBalancer"
     destination_address_prefix = "*"
   }
+
+  security_rule {
+    name                       = "deny-all-vnet-inbound"
+    priority                   = 1000
+    direction                  = "Inbound"
+    access                     = "Deny"
+    protocol                   = "*"
+    source_port_range          = "*"
+    destination_port_range     = "*"
+    source_address_prefix      = "VirtualNetwork"
+    destination_address_prefix = "*"
+  }
+}
+
+resource "azurerm_subnet_network_security_group_association" "bastion_nsg_asc" {
+  subnet_id                 = azurerm_subnet.bastion-subnet.id
+  network_security_group_id = azurerm_network_security_group.bastion-nsg.id
 }
 
 resource "azurerm_subnet_network_security_group_association" "aks_nsg_asc" {
@@ -190,21 +202,35 @@ resource "azurerm_subnet_network_security_group_association" "aks_nsg_asc" {
 }
 
 resource "azurerm_kubernetes_cluster" "aks" {
-  name                    = "aks-dev-weu-01"
-  resource_group_name     = azurerm_resource_group.rg.name
-  location                = azurerm_resource_group.rg.location
-  dns_prefix              = "aks"
-  oidc_issuer_enabled     = true
-  private_cluster_enabled = true
-  local_account_disabled  = true
+  name                         = "aks-${local.base_sufix}"
+  resource_group_name          = azurerm_resource_group.rg.name
+  location                     = azurerm_resource_group.rg.location
+  dns_prefix                   = "aks"
+  oidc_issuer_enabled          = true
+  workload_identity_enabled    = true
+  private_cluster_enabled      = true
+  local_account_disabled       = true
+  automatic_upgrade_channel    = "stable"
+  node_os_upgrade_channel      = "NodeImage"
+  image_cleaner_enabled        = true
+  image_cleaner_interval_hours = 48
+
+  maintenance_window_auto_upgrade {
+    frequency   = "Weekly"
+    interval    = 1
+    day_of_week = "Sunday"
+    start_time  = "03:00"
+    duration    = 4
+  }
 
   default_node_pool {
-    name            = "system"
-    node_count      = 1
-    vm_size         = "Standard_D2ads_v6"
-    os_disk_type    = "Ephemeral"
-    os_disk_size_gb = 30
-    vnet_subnet_id  = azurerm_subnet.aks-subnet.id
+    name                         = "system"
+    node_count                   = 2
+    vm_size                      = "Standard_D4ads_v6"
+    os_disk_type                 = "Ephemeral"
+    os_disk_size_gb              = 30
+    vnet_subnet_id               = azurerm_subnet.aks-subnet.id
+    only_critical_addons_enabled = true
   }
 
   identity {
@@ -227,14 +253,25 @@ resource "azurerm_kubernetes_cluster" "aks" {
   network_profile {
     network_plugin      = "azure"
     network_plugin_mode = "overlay"
-    service_cidr = "10.1.0.0/16"
-    dns_service_ip = "10.1.0.10"
-    pod_cidr = "10.2.0.0/16"
+    network_data_plane  = "cilium"
+    network_policy      = "cilium"
+    service_cidr        = "10.1.0.0/16"
+    dns_service_ip      = "10.1.0.10"
+    pod_cidr            = "10.2.0.0/16"
+    outbound_type       = "loadBalancer"
   }
 }
 
+resource "azurerm_kubernetes_cluster_node_pool" "user_pool" {
+  name                  = "userpool01"
+  kubernetes_cluster_id = azurerm_kubernetes_cluster.aks.id
+  vm_size               = "Standard_D4ads_v6"
+  vnet_subnet_id        = azurerm_subnet.aks-subnet.id
+  node_count            = 2
+}
+
 resource "azurerm_container_registry" "acr" {
-  name                = "acrdevweu01${random_string.suffix.result}"
+  name                = "acr${local.base_suffix_flat}${random_string.suffix.result}"
   resource_group_name = azurerm_resource_group.rg.name
   location            = azurerm_resource_group.rg.location
   sku                 = "Basic"
@@ -242,10 +279,9 @@ resource "azurerm_container_registry" "acr" {
 }
 
 resource "azurerm_key_vault" "kv" {
-  name                          = "kv-dev-weu-01"
+  name                          = "kv-${local.base_sufix}"
   location                      = azurerm_resource_group.rg.location
   resource_group_name           = azurerm_resource_group.rg.name
-  enabled_for_disk_encryption   = true
   tenant_id                     = data.azurerm_client_config.current.tenant_id
   soft_delete_retention_days    = 7
   purge_protection_enabled      = false
@@ -254,17 +290,13 @@ resource "azurerm_key_vault" "kv" {
   public_network_access_enabled = false
 }
 
-resource "azurerm_role_assignment" "kv_admin_user" {
-  scope                = azurerm_key_vault.kv.id
-  role_definition_name = "Key Vault Secrets Officer"
-  principal_id         = data.azurerm_client_config.current.object_id
-}
-
+# TODO: when configuring AKS itself change this to federated credentials
 resource "azurerm_role_assignment" "kv_aks_csi" {
   scope                = azurerm_key_vault.kv.id
   role_definition_name = "Key Vault Secrets User"
   principal_id         = azurerm_kubernetes_cluster.aks.key_vault_secrets_provider[0].secret_identity[0].object_id
 }
+#
 
 resource "azurerm_role_assignment" "aks_acr_pull" {
   principal_id                     = azurerm_kubernetes_cluster.aks.kubelet_identity[0].object_id
@@ -273,20 +305,49 @@ resource "azurerm_role_assignment" "aks_acr_pull" {
   skip_service_principal_aad_check = true
 }
 
-resource "azurerm_role_assignment" "aks_cluster_user" {
-  scope                = azurerm_kubernetes_cluster.aks.id
-  role_definition_name = "Azure Kubernetes Service Cluster User Role"
-  principal_id         = data.azurerm_client_config.current.object_id
+resource "azurerm_role_assignment" "kv_admin_group" {
+  scope                = azurerm_key_vault.kv.id
+  role_definition_name = "Key Vault Secrets Officer"
+  principal_id         = var.kv_secret_admin_group_object_id
 }
 
-resource "azurerm_role_assignment" "aks_rbac_admin" {
+resource "azurerm_role_assignment" "aks_cluster_user_group" {
+  scope                = azurerm_kubernetes_cluster.aks.id
+  role_definition_name = "Azure Kubernetes Service Cluster User Role"
+  principal_id         = var.aks_admin_group_object_id
+}
+
+resource "azurerm_role_assignment" "aks_rbac_admin_group" {
   scope                = azurerm_kubernetes_cluster.aks.id
   role_definition_name = "Azure Kubernetes Service RBAC Cluster Admin"
-  principal_id         = data.azurerm_client_config.current.object_id
+  principal_id         = var.aks_admin_group_object_id
+}
+
+resource "azurerm_user_assigned_identity" "workload" {
+  for_each            = var.workload_identities
+  name                = "id-${each.key}"
+  resource_group_name = azurerm_resource_group.rg.name
+  location            = azurerm_resource_group.rg.location
+}
+
+resource "azurerm_federated_identity_credential" "workload" {
+  for_each                  = var.workload_identities
+  name                      = "fed-${each.key}"
+  audience                  = ["api://AzureADTokenExchange"]
+  issuer                    = azurerm_kubernetes_cluster.aks.oidc_issuer_url
+  subject                   = "system:serviceaccount:${each.value.namespace}:${each.value.service_account}"
+  user_assigned_identity_id = azurerm_user_assigned_identity.workload[each.key].id
+}
+
+resource "azurerm_role_assignment" "workload_kv" {
+  for_each             = var.workload_identities
+  scope                = azurerm_key_vault.kv.id
+  role_definition_name = "Key Vault Secrets User"
+  principal_id         = azurerm_user_assigned_identity.workload[each.key].principal_id
 }
 
 resource "azurerm_public_ip" "pip" {
-  name                = "bastion-pip-dev-weu-01"
+  name                = "bastion-pip-${local.base_sufix}"
   resource_group_name = azurerm_resource_group.rg.name
   location            = azurerm_resource_group.rg.location
   allocation_method   = "Static"
@@ -294,7 +355,7 @@ resource "azurerm_public_ip" "pip" {
 }
 
 resource "azurerm_network_interface" "bastion-vm-nic" {
-  name                = "bastion-vm-nic-dev-weu-01"
+  name                = "bastion-vm-nic-${local.base_sufix}"
   resource_group_name = azurerm_resource_group.rg.name
   location            = azurerm_resource_group.rg.location
 
@@ -307,7 +368,7 @@ resource "azurerm_network_interface" "bastion-vm-nic" {
 }
 
 resource "azurerm_linux_virtual_machine" "bastion-vm" {
-  name                            = "bastion-vm-dev-weu-01"
+  name                            = "bastion-vm-${local.base_sufix}"
   resource_group_name             = azurerm_resource_group.rg.name
   location                        = azurerm_resource_group.rg.location
   size                            = "Standard_B2s_v2"
@@ -343,13 +404,13 @@ resource "azurerm_private_dns_zone" "kv" {
 }
 
 resource "azurerm_private_dns_zone_virtual_network_link" "kv" {
-  name                = "kv-dns-link-dev-weu-01"
+  name                = "kv-dns-link-${local.base_sufix}"
   private_dns_zone_id = azurerm_private_dns_zone.kv.id
   virtual_network_id  = azurerm_virtual_network.vnet-01.id
 }
 
 resource "azurerm_private_endpoint" "kv" {
-  name                = "kv-pe-dev-weu-01"
+  name                = "kv-pe-${local.base_sufix}"
   resource_group_name = azurerm_resource_group.rg.name
   location            = azurerm_resource_group.rg.location
   subnet_id           = azurerm_subnet.kv-subnet.id
@@ -366,3 +427,16 @@ resource "azurerm_private_endpoint" "kv" {
     private_dns_zone_ids = [azurerm_private_dns_zone.kv.id]
   }
 }
+
+# Would make sense in the prod cluster to block deletion of data inside those resources but in case of testing it would block also `terraform destroy` so those resources are commented out
+# resource "azurerm_management_lock" "kv" {
+#   name = "protect-kv"
+#   scope = azurerm_key_vault.kv.id
+#   lock_level = "CanNotDelete"
+# }
+
+# resource "azurerm_management_lock" "acr" {
+#   name = "protect-acr"
+#   scope = azurerm_container_registry.acr.id
+#   lock_level = "CanNotDelete"
+# }
