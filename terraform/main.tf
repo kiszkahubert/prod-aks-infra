@@ -8,7 +8,7 @@ resource "random_string" "suffix" {
 
 resource "azurerm_resource_group" "rg" {
   name     = "rg-${local.base_sufix}"
-  location = "West Europe"
+  location = var.location
 }
 
 resource "azurerm_virtual_network" "vnet-01" {
@@ -225,12 +225,12 @@ resource "azurerm_kubernetes_cluster" "aks" {
 
   default_node_pool {
     name                         = "system"
-    node_count                   = 2
-    vm_size                      = "Standard_D4ads_v6"
+    node_count                   = 1
+    vm_size                      = "Standard_D2ads_v6"
     os_disk_type                 = "Ephemeral"
     os_disk_size_gb              = 30
     vnet_subnet_id               = azurerm_subnet.aks-subnet.id
-    only_critical_addons_enabled = true
+    # only_critical_addons_enabled = true - would have that with userpool
   }
 
   identity {
@@ -262,13 +262,14 @@ resource "azurerm_kubernetes_cluster" "aks" {
   }
 }
 
-resource "azurerm_kubernetes_cluster_node_pool" "user_pool" {
-  name                  = "userpool01"
-  kubernetes_cluster_id = azurerm_kubernetes_cluster.aks.id
-  vm_size               = "Standard_D4ads_v6"
-  vnet_subnet_id        = azurerm_subnet.aks-subnet.id
-  node_count            = 2
-}
+# normally would have that but I there is cap of vCPU I cannot overcome with current subscription
+# resource "azurerm_kubernetes_cluster_node_pool" "user_pool" {
+#   name                  = "userpool01"
+#   kubernetes_cluster_id = azurerm_kubernetes_cluster.aks.id
+#   vm_size               = "Standard_D2ads_v6"
+#   vnet_subnet_id        = azurerm_subnet.aks-subnet.id
+#   node_count            = 1
+# }
 
 resource "azurerm_container_registry" "acr" {
   name                = "acr${local.base_suffix_flat}${random_string.suffix.result}"
@@ -279,7 +280,7 @@ resource "azurerm_container_registry" "acr" {
 }
 
 resource "azurerm_key_vault" "kv" {
-  name                          = "kv-${local.base_sufix}"
+  name                          = "kv-${local.base_sufix}-${random_string.suffix.result}"
   location                      = azurerm_resource_group.rg.location
   resource_group_name           = azurerm_resource_group.rg.name
   tenant_id                     = data.azurerm_client_config.current.tenant_id
@@ -322,6 +323,20 @@ resource "azurerm_role_assignment" "aks_rbac_admin_group" {
   role_definition_name = "Azure Kubernetes Service RBAC Cluster Admin"
   principal_id         = var.aks_admin_group_object_id
 }
+
+# TODO: change to something less broad
+resource "azurerm_role_assignment" "bastion_aks_admin" {
+  scope                = azurerm_kubernetes_cluster.aks.id
+  role_definition_name = "Azure Kubernetes Service RBAC Cluster Admin"
+  principal_id          = azurerm_linux_virtual_machine.bastion-vm.identity[0].principal_id
+}
+
+resource "azurerm_role_assignment" "bastion_aks_cluster_user" {
+  scope                = azurerm_kubernetes_cluster.aks.id
+  role_definition_name = "Azure Kubernetes Service Cluster User Role"
+  principal_id         = azurerm_linux_virtual_machine.bastion-vm.identity[0].principal_id
+}
+#
 
 resource "azurerm_user_assigned_identity" "workload" {
   for_each            = var.workload_identities
@@ -367,16 +382,17 @@ resource "azurerm_network_interface" "bastion-vm-nic" {
   }
 }
 
+#Should have burstable SKU but idc none is available in any region
 resource "azurerm_linux_virtual_machine" "bastion-vm" {
   name                            = "bastion-vm-${local.base_sufix}"
   resource_group_name             = azurerm_resource_group.rg.name
   location                        = azurerm_resource_group.rg.location
-  size                            = "Standard_B2s_v2"
+  size                            = "Standard_D2ads_v6"
   disable_password_authentication = true
   network_interface_ids           = [azurerm_network_interface.bastion-vm-nic.id]
   admin_username                  = "bastionadmin"
 
-  admin_ssh_key {
+  admin_ssh_key { 
     username   = "bastionadmin"
     public_key = file("~/.ssh/id_rsa.pub")
   }
