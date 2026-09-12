@@ -1,3 +1,21 @@
+# Azure AKS hardened infrastructure
+The goal of this project was to create production level infrastructure for Kubernetes cluster on Azure cloud platform. There are some limitations in proposed solution stemming from the used Azure subscription (e.g. limit to 4 vCPU).
+
+## Tools and Security Controls
+1. Kubernetes
+2. Key Vault
+3. Microsoft Entra Workload Identity
+4. Azure RBAC
+5. Bastion/jump-host
+6. ArgoCD
+7. Pod Security Admission
+8. Kyverno policies
+9. Terraform
+
+## Infrastucture
+Infrastructure has been provisioned using Terraform.....
+
+
 az group create --name rg-tfstate-prod --location westeurope
 
 az storage account create \

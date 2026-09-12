@@ -1,0 +1,58 @@
+global:
+  securityContext:
+    runAsNonRoot: true
+    seccompProfile:
+      type: RuntimeDefault
+
+configs:
+  params:
+    server.insecure: "false"
+  cm:
+    admin.enabled: "true"
+    exec.enabled: "false"
+    timeout.reconciliation: 180s
+    resource.exclusions: |
+      - apiGroups: ["cilium.io"]
+        kinds: ["CiliumIdentity", "CiliumEndpoint"]
+        clusters: ["*"]
+  rbac:
+    policy.default: role:readonly
+
+applicationSet:
+  enabled: false
+
+dex:
+  enabled: false
+
+notifications:
+  enabled: false
+
+server:
+  replicas: 1
+  service:
+    type: ClusterIP
+  ingress:
+    enabled: false
+  resources:
+    requests: { cpu: 50m, memory: 128Mi }
+    limits: { cpu: 300m, memory: 256Mi }
+
+repoServer:
+  replicas: 1
+  resources:
+    requests: { cpu: 50m, memory: 128Mi }
+    limits: { cpu: 500m, memory: 512Mi }
+
+controller:
+  replicas: 1
+  resources:
+    requests: { cpu: 100m, memory: 256Mi }
+    limits: { cpu: 500m, memory: 512Mi }
+
+redis:
+  resources:
+    requests: { cpu: 50m, memory: 64Mi }
+    limits: {cpu: 150m, memory: 128Mi }
+
+redisSecretInit:
+  enabled: true

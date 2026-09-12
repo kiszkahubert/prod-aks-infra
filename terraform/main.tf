@@ -259,6 +259,10 @@ resource "azurerm_kubernetes_cluster" "aks" {
     dns_service_ip      = "10.1.0.10"
     pod_cidr            = "10.2.0.0/16"
     outbound_type       = "loadBalancer"
+    advanced_networking {
+      observability_enabled = true
+      security_enabled = true
+    }
   }
 }
 
@@ -393,7 +397,7 @@ resource "azurerm_linux_virtual_machine" "bastion-vm" {
   admin_username                  = "bastionadmin"
 
   admin_ssh_key { 
-    username   = "bastionadmin"
+    username   = "bastionadmin" 
     public_key = file("~/.ssh/id_rsa.pub")
   }
 
