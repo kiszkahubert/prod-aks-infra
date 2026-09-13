@@ -8,11 +8,6 @@ fi
 SECRET_NAME="argocd-github-deploy-key"
 KEY_PATH="/tmp/argocd-deploy-key"
 
-if az account show &>/dev/null; then
-  echo "No valid az account found"
-  exit 1
-fi
-
 rm -f "$KEY_PATH" "$KEY_PATH.pub"
 ssh-keygen -t ed25519 -f "$KEY_PATH" -N "" -C "argocd-readonly"
 

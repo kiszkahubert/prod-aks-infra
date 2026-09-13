@@ -52,3 +52,14 @@ MY_ID=$(az ad signed-in-user show --query id -o tsv)
 
 az ad group member add --group "aks-admins" --member-id "$MY_ID"
 az ad group member add --group "kv-secrets-admins" --member-id "$MY_ID"
+
+# BASTION
+curl -sL https://aka.ms/InstallAzureCLIDeb | sudo bash
+az aks install-cli
+az login --identity
+az account set --subscription dd089afc-a56d-413b-828b-1867bda4beef
+az aks get-credentials \
+  --resource-group rg-dev-weu-01 \
+  --name aks-dev-weu-01 \
+  --overwrite-existing
+kubelogin convert-kubeconfig -l msi
