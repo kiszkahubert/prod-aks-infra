@@ -1,0 +1,20 @@
+apiVersion: cilium.io/v2
+kind: CiliumNetworkPolicy
+metadata:
+  name: allow-azure-keyvault-egress
+  namespace: workloads
+spec:
+  endpointSelector: {}
+  egress:
+    - toFQDNs:
+        - matchName: "login.microsoftonline.com"
+      toPorts:
+        - ports:
+            - port: "443"
+              protocol: TCP
+    - toCIDR:
+        - "10.0.4.0/28"
+      toPorts:
+        - ports:
+            - port: "443"
+              protocol: TCP
