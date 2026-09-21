@@ -1,0 +1,16 @@
+apiVersion: cilium.io/v2
+kind: CiliumNetworkPolicy
+metadata:
+  name: argocd-kyverno-chart-egress
+  namespace: argocd
+spec:
+  endpointSelector:
+    matchLabels:
+      app.kubernetes.io/name: argocd-repo-server
+  egress:
+    - toFQDNs:
+        - matchName: "kyverno.github.io"
+      toPorts:
+        - ports:
+            - port: "443"
+              protocol: TCP
