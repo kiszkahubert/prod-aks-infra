@@ -1,0 +1,29 @@
+apiVersion: policies.kyverno.io/v1
+kind: ValidatingPolicy
+metadata:
+  name: require-resource-requests-limits
+  annotations:
+    policies.kyverno.io/title: Require Resource Requests and Limits
+    policies.kyverno.io/category: Resource Management
+    policies.kyverno.io/severity: medium
+    policies.kyverno.io/description: >-
+      Critical in this scenario with one system node, without limits one pod can use all remaining CPU/RAM.
+spec:
+  validationActions:
+    - Deny
+  matchConstraints:
+    resourceRules:
+      - apiGroups: [""]
+        apiVersions: ["v1"]
+        operations: ["CREATE", "UPDATE"]
+        resources: ["pods"]
+  matchConditions:
+    - name: exclude-kube-system
+      expression: "object.metadata.namespace != 'kube-system'"
+  validations:
+    - expression: >-
+        object.spec.containers.all(c, has(c.resources) &&
+          has(c.resources.requests) && has(c.resources.requests.cpu) && has(c.resources.requests.memory) &&
+          has(c.resources.limits) && has(c.resources.limits.cpu) && has(c.resources.limits.memory)
+        )
+      message: "Each container needs to have set resources.requests and resources.limits (cpu and memory)"
