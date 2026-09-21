@@ -38,4 +38,5 @@ crds:
   install: true
 
 features:
-  autoUpdateWebhooks: true
+  autoUpdateWebhooks: 
+    enabled: true
