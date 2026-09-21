@@ -11,7 +11,7 @@ spec:
       targetRevision: "3.8.1"
       helm:
         valueFiles:
-          - $values/manifests/kyverno/values.yaml
+          - $values/manifests/kyverno/values.yml
     - repoURL: "git@github.com:kiszkahubert/prod-aks-infra.git"
       targetRevision: main
       ref: values
