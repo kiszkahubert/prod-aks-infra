@@ -1,0 +1,25 @@
+apiVersion: policies.kyverno.io/v1
+kind: ValidatingPolicy
+metadata:
+  name: restrict-image-registries
+  annotations:
+    policies.kyverno.io/title: Restrict Image Registries
+    policies.kyverno.io/category: Supply Chain Security
+    policies.kyverno.io/severity: high
+    policies.kyverno.io/description: >-
+      Images can only be pulled from private ACR registry - this security measure allows pulling potentialy dangerous images from public registry like Docker Hub
+spec:
+  validationActions:
+    - Deny
+  matchConstraints:
+    resourceRules:
+      - apiGroups: [""]
+        apiVersions: ["v1"]
+        operations: ["CREATE", "UPDATE"]
+        resources: ["pods"]
+  matchConditions:
+    - name: exclude-platform-namespaces
+      expression: "!(object.metadata.namespace in ['kube-system', 'kyverno', 'argocd'])"
+  validations:
+    - expression: "object.spec.containers.all(c, c.image.startsWith('acrdevweu01xssg.azurecr.io/'))"
+      message: "Image needs to come from acrdevweu01xssg.azurecr.io registry"

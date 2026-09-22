@@ -1,0 +1,25 @@
+apiVersion: policies.kyverno.io/v1
+kind: ValidatingPolicy
+metadata:
+  name: disallow-latest-tag
+  annotations:
+    policies.kyverno.io/title: Disallow Latest Tag
+    policies.kyverno.io/category: Best Practices
+    policies.kyverno.io/severity: medium
+spec:
+  validationActions:
+    - Deny
+  matchConstraints:
+    resourceRules:
+      - apiGroups: [""]
+        apiVersions: ["v1"]
+        operations: ["CREATE", "UPDATE"]
+        resources: ["pods"]
+  matchConditions:
+    - name: exclude-kube-system
+      expression: "object.metadata.namespace != 'kube-system'"
+  validations:
+    - expression: "object.spec.containers.all(c, c.image.contains(':'))"
+      message: "Images need to have explicit tag specified"
+    - expression: "object.spec.containers.all(c, !c.image.endsWith(':latest'))"
+      message: "Tag :latest is not allowed"
