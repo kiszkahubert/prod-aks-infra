@@ -329,17 +329,17 @@ resource "azurerm_role_assignment" "aks_rbac_admin_group" {
 }
 
 # TODO: change to something less broad
-resource "azurerm_role_assignment" "bastion_aks_admin" {
-  scope                = azurerm_kubernetes_cluster.aks.id
-  role_definition_name = "Azure Kubernetes Service RBAC Cluster Admin"
-  principal_id          = azurerm_linux_virtual_machine.bastion-vm.identity[0].principal_id
-}
+# resource "azurerm_role_assignment" "bastion_aks_admin" {
+#   scope                = azurerm_kubernetes_cluster.aks.id
+#   role_definition_name = "Azure Kubernetes Service RBAC Cluster Admin"
+#   principal_id          = azurerm_linux_virtual_machine.bastion-vm.identity[0].principal_id
+# }
 
-resource "azurerm_role_assignment" "bastion_aks_cluster_user" {
-  scope                = azurerm_kubernetes_cluster.aks.id
-  role_definition_name = "Azure Kubernetes Service Cluster User Role"
-  principal_id         = azurerm_linux_virtual_machine.bastion-vm.identity[0].principal_id
-}
+# resource "azurerm_role_assignment" "bastion_aks_cluster_user" {
+#   scope                = azurerm_kubernetes_cluster.aks.id
+#   role_definition_name = "Azure Kubernetes Service Cluster User Role"
+#   principal_id         = azurerm_linux_virtual_machine.bastion-vm.identity[0].principal_id
+# }
 #
 
 resource "azurerm_user_assigned_identity" "workload" {
@@ -365,58 +365,58 @@ resource "azurerm_role_assignment" "workload_kv" {
   principal_id         = azurerm_user_assigned_identity.workload[each.key].principal_id
 }
 
-resource "azurerm_public_ip" "pip" {
-  name                = "bastion-pip-${local.base_sufix}"
-  resource_group_name = azurerm_resource_group.rg.name
-  location            = azurerm_resource_group.rg.location
-  allocation_method   = "Static"
-  sku                 = "Standard"
-}
+# resource "azurerm_public_ip" "pip" {
+#   name                = "bastion-pip-${local.base_sufix}"
+#   resource_group_name = azurerm_resource_group.rg.name
+#   location            = azurerm_resource_group.rg.location
+#   allocation_method   = "Static"
+#   sku                 = "Standard"
+# }
 
-resource "azurerm_network_interface" "bastion-vm-nic" {
-  name                = "bastion-vm-nic-${local.base_sufix}"
-  resource_group_name = azurerm_resource_group.rg.name
-  location            = azurerm_resource_group.rg.location
+# resource "azurerm_network_interface" "bastion-vm-nic" {
+#   name                = "bastion-vm-nic-${local.base_sufix}"
+#   resource_group_name = azurerm_resource_group.rg.name
+#   location            = azurerm_resource_group.rg.location
 
-  ip_configuration {
-    name                          = "base"
-    subnet_id                     = azurerm_subnet.bastion-subnet.id
-    private_ip_address_allocation = "Dynamic"
-    public_ip_address_id          = azurerm_public_ip.pip.id
-  }
-}
+#   ip_configuration {
+#     name                          = "base"
+#     subnet_id                     = azurerm_subnet.bastion-subnet.id
+#     private_ip_address_allocation = "Dynamic"
+#     public_ip_address_id          = azurerm_public_ip.pip.id
+#   }
+# }
 
-#Should have burstable SKU but idc none is available in any region
-resource "azurerm_linux_virtual_machine" "bastion-vm" {
-  name                            = "bastion-vm-${local.base_sufix}"
-  resource_group_name             = azurerm_resource_group.rg.name
-  location                        = azurerm_resource_group.rg.location
-  size                            = "Standard_D2ads_v6"
-  disable_password_authentication = true
-  network_interface_ids           = [azurerm_network_interface.bastion-vm-nic.id]
-  admin_username                  = "bastionadmin"
+# #Should have burstable SKU but idc none is available in any region
+# resource "azurerm_linux_virtual_machine" "bastion-vm" {
+#   name                            = "bastion-vm-${local.base_sufix}"
+#   resource_group_name             = azurerm_resource_group.rg.name
+#   location                        = azurerm_resource_group.rg.location
+#   size                            = "Standard_D2ads_v6"
+#   disable_password_authentication = true
+#   network_interface_ids           = [azurerm_network_interface.bastion-vm-nic.id]
+#   admin_username                  = "bastionadmin"
 
-  admin_ssh_key { 
-    username   = "bastionadmin" 
-    public_key = file("~/.ssh/id_rsa.pub")
-  }
+#   admin_ssh_key { 
+#     username   = "bastionadmin" 
+#     public_key = file("~/.ssh/id_rsa.pub")
+#   }
 
-  os_disk {
-    caching              = "ReadWrite"
-    storage_account_type = "Standard_LRS"
-  }
+#   os_disk {
+#     caching              = "ReadWrite"
+#     storage_account_type = "Standard_LRS"
+#   }
 
-  source_image_reference {
-    publisher = "Canonical"
-    offer     = "ubuntu-24_04-lts"
-    sku       = "server"
-    version   = "latest"
-  }
+#   source_image_reference {
+#     publisher = "Canonical"
+#     offer     = "ubuntu-24_04-lts"
+#     sku       = "server"
+#     version   = "latest"
+#   }
 
-  identity {
-    type = "SystemAssigned"
-  }
-}
+#   identity {
+#     type = "SystemAssigned"
+#   }
+# }
 
 resource "azurerm_private_dns_zone" "kv" {
   name                = "privatelink.vaultcore.azure.net"

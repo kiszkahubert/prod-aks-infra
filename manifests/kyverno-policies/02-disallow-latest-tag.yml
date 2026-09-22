@@ -17,7 +17,7 @@ spec:
         resources: ["pods"]
   matchConditions:
     - name: exclude-kube-system
-      expression: "object.metadata.namespace != 'kube-system'"
+      expression: "!(object.metadata.namespace in ['kube-system', 'aks-command'])"
   validations:
     - expression: "object.spec.containers.all(c, c.image.contains(':'))"
       message: "Images need to have explicit tag specified"
