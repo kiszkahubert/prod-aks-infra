@@ -155,6 +155,18 @@ resource "azurerm_network_security_group" "aks-nsg" {
   }
 
   security_rule {
+    name                       = "allow-pod-cidr-inbound"
+    priority                   = 105
+    direction                  = "Inbound"
+    access                     = "Allow"
+    protocol                   = "*"
+    source_port_range          = "*"
+    destination_port_range     = "*"
+    source_address_prefix      = "10.2.0.0/16"
+    destination_address_prefix = "*"
+  }
+
+  security_rule {
     name                       = "allow-bastion-to-aks-inbound"
     priority                   = 110
     direction                  = "Inbound"
@@ -266,14 +278,13 @@ resource "azurerm_kubernetes_cluster" "aks" {
   }
 }
 
-# normally would have that but I there is cap of vCPU I cannot overcome with current subscription
-# resource "azurerm_kubernetes_cluster_node_pool" "user_pool" {
-#   name                  = "userpool01"
-#   kubernetes_cluster_id = azurerm_kubernetes_cluster.aks.id
-#   vm_size               = "Standard_D2ads_v6"
-#   vnet_subnet_id        = azurerm_subnet.aks-subnet.id
-#   node_count            = 1
-# }
+resource "azurerm_kubernetes_cluster_node_pool" "user_pool" {
+  name                  = "userpool01"
+  kubernetes_cluster_id = azurerm_kubernetes_cluster.aks.id
+  vm_size               = "Standard_D2ads_v6"
+  vnet_subnet_id        = azurerm_subnet.aks-subnet.id
+  node_count            = 1
+}
 
 resource "azurerm_container_registry" "acr" {
   name                = "acr${local.base_suffix_flat}${random_string.suffix.result}"
