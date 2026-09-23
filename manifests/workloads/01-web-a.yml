@@ -48,10 +48,14 @@ spec:
           volumeMounts:
             - name: html
               mountPath: /usr/share/nginx/html
+            - name: tmp
+              mountPath: /tmp
       volumes:
         - name: html
           configMap:
             name: web-a-html
+        - name: tmp
+          emptyDir: {}
     
 ---
 apiVersion: v1
