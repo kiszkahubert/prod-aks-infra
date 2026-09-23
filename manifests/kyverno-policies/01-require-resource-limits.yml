@@ -19,7 +19,7 @@ spec:
         resources: ["pods"]
   matchConditions:
     - name: exclude-kube-system
-      expression: "!(object.metadata.namespace in ['kube-system', 'aks-command','aks-istio-system', 'ingress'])"
+      expression: "!(object.metadata.namespace in ['kube-system', 'aks-command'])"
   validations:
     - expression: >-
         object.spec.containers.all(c, has(c.resources) &&

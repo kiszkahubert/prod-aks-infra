@@ -1,17 +1,17 @@
 apiVersion: argoproj.io/v1alpha1
 kind: Application
 metadata:
-  name: kyverno-policies
+  name: workloads
   namespace: argocd
 spec:
   project: default
   source:
     repoURL: "git@github.com:kiszkahubert/prod-aks-infra.git"
     targetRevision: main
-    path: manifests/kyverno-policies
+    path: manifests/workloads
   destination:
     server: https://kubernetes.default.svc
-    namespace: kyverno
+    namespace: workloads
   syncPolicy:
     automated:
       prune: true
@@ -22,3 +22,6 @@ spec:
         duration: 30s
         factor: 2
         maxDuration: 5m
+    syncOptions:
+      - CreateNamespace=false
+      - SkipDryRunOnMissingResource=true

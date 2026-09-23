@@ -1,0 +1,93 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: web-a-html
+  namespace: workloads
+data:
+  index.html: "<h1>web-a</h1>"
+
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: web-a
+  namespace: workloads
+spec:
+  replicas: 2
+  selector:
+    matchLabels:
+      app: web-a
+  template:
+    metadata:
+      labels:
+        app: web-a
+    spec:
+      securityContext:
+        runAsNonRoot: true
+        runAsUser: 101
+        runAsGroup: 101
+        seccompProfile:
+          type: RuntimeDefault
+      containers:
+        - name: nginx
+          image: acrdevweu01xssg.azurecr.io/nginx-unprivileged:1.30.5-alpine
+          ports:
+            - containerPort: 8080
+          resources:
+            requests: 
+              cpu: "10m"
+              memory: "16Mi"
+            limits: 
+              cpu: "50m"
+              memory: "32Mi"
+          securityContext:
+            allowPrivilegeEscalation: false
+            readOnlyRootFilesystem: true
+            capabilities:
+              drop: ["ALL"]
+          volumeMounts:
+            - name: html
+              mountPath: /usr/share/nginx/html
+      volumes:
+        - name: html
+          configMap:
+            name: web-a-html
+    
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: web-a
+  namespace: workloads
+spec:
+  selector:
+    app: web-a
+  ports:
+    - port: 80
+      targetPort: 8080
+
+---
+apiVersion: gateway.networking.k8s.io/v1
+kind: HTTPRoute
+metadata:
+  name: web-a
+  namespace: workloads
+spec:
+  parentRefs:
+    - name: web-gateway
+      namespace: ingress
+  hostnames: ["kiszka.westus.cloudapp.azure-com"]
+  rules:
+    - matches:
+        - path:
+            type: PathPrefix
+            value: /a
+      filters:
+        - type: URLRewrite
+          urlRewrite:
+            path:
+              type: ReplacePrefixMatch
+              replacePrefixMatch: /
+      backendRefs:
+        - name: web-a
+          port: 80

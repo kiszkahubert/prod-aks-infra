@@ -12,7 +12,7 @@ spec:
     targetRevision: main
     path: apps
     directory:
-      include: "{namespaces,network-policies,kyverno,kyverno-policies}.yml"
+      include: "{namespaces,network-policies,kyverno,kyverno-policies,workloads,gateway,envoy-gateway-repo,envoy-gateway-crds,envoy-gateway}.yml"
   destination:
     server: https://kubernetes.default.svc
     namespace: argocd

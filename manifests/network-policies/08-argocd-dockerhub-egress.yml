@@ -1,0 +1,17 @@
+apiVersion: cilium.io/v2
+kind: CiliumNetworkPolicy
+metadata:
+  name: argocd-dockerhub-egress
+  namespace: argocd
+spec:
+  endpointSelector:
+    matchLabels:
+      app.kubernetes.io/name: argocd-repo-server
+  egress:
+    - toFQDNs:
+        - matchPattern: "*.docker.io"
+        - matchName: "production.cloudflare.docker.com"
+      toPorts:
+        - ports:
+            - port: "443"
+              protocol: TCP
