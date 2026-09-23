@@ -11,6 +11,7 @@ spec:
     - toFQDNs:
         - matchPattern: "*.docker.io"
         - matchName: "production.cloudflare.docker.com"
+        - matchName: "docker-images-prod.6aa30f8b08e16409b46e0173d6de2f56.r2.cloudflarestorage.com"
       toPorts:
         - ports:
             - port: "443"

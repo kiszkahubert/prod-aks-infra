@@ -18,5 +18,5 @@ spec:
         operations: ["CREATE", "UPDATE"]
         resources: ["pods"]
   validations:
-    - expression: "object.metadata.namespace != 'default'"
+    - expression: "request.namespace != 'default'"
       message: "Default namespace is not allowed"
