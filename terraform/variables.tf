@@ -24,6 +24,6 @@ variable "workload_identities" {
 
 variable "location" {
   description = "Location to deploy resources to"
-  type = string
-  default = "West Europe"
+  type        = string
+  default     = "West Europe"
 }

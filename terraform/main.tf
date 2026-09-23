@@ -188,6 +188,19 @@ resource "azurerm_network_security_group" "aks-nsg" {
     destination_port_range     = "*"
     source_address_prefix      = "AzureLoadBalancer"
     destination_address_prefix = "*"
+    destination_address_prefix = "*"
+  }
+
+  security_rule {
+    name                       = "allow-http-inbound"
+    priority                   = 130
+    direction                  = "Inbound"
+    access                     = "Allow"
+    protocol                   = "Tcp"
+    source_port_range          = "*"
+    destination_port_ranges    = ["80", "443"]
+    source_address_prefixes    = var.admin_ips
+    destination_address_prefix = "*"
   }
 
   security_rule {
@@ -236,12 +249,12 @@ resource "azurerm_kubernetes_cluster" "aks" {
   }
 
   default_node_pool {
-    name                         = "system"
-    node_count                   = 1
-    vm_size                      = "Standard_D2ads_v6"
-    os_disk_type                 = "Ephemeral"
-    os_disk_size_gb              = 30
-    vnet_subnet_id               = azurerm_subnet.aks-subnet.id
+    name            = "system"
+    node_count      = 1
+    vm_size         = "Standard_D2ads_v6"
+    os_disk_type    = "Ephemeral"
+    os_disk_size_gb = 30
+    vnet_subnet_id  = azurerm_subnet.aks-subnet.id
     # only_critical_addons_enabled = true - would have that with userpool
   }
 
@@ -273,7 +286,7 @@ resource "azurerm_kubernetes_cluster" "aks" {
     outbound_type       = "loadBalancer"
     advanced_networking {
       observability_enabled = true
-      security_enabled = true
+      security_enabled      = true
     }
   }
 }

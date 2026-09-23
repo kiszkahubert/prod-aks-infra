@@ -80,7 +80,7 @@ spec:
   parentRefs:
     - name: web-gateway
       namespace: ingress
-  hostnames: ["kiszka.westus.cloudapp.azure-com"]
+  hostnames: ["kiszka.westus.cloudapp.azure.com"]
   rules:
     - matches:
         - path:
