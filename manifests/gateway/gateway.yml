@@ -17,6 +17,21 @@ spec:
             limits: 
               cpu: "300m"
               memory: "512Mi"
+        patch:
+          type: StrategicMerge
+          value:
+            spec:
+              template:
+                spec:
+                  containers:
+                    - name: shutdown-manager
+                      resources:
+                        requests: 
+                          cpu: "10m"
+                          memory: "32Mi"
+                        limits: 
+                          cpu: "100m"
+                          memory: "64Mi"
       envoyService:
         annotations:
           service.beta.kubernetes.io/azure-dns-label-name: kiszka
