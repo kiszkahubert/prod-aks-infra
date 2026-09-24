@@ -77,18 +77,6 @@ resource "azurerm_network_security_group" "bastion-nsg" {
   }
 
   security_rule {
-    name                       = "allow-http-outbound"
-    priority                   = 110
-    direction                  = "Outbound"
-    access                     = "Allow"
-    protocol                   = "Tcp"
-    source_port_range          = "*"
-    destination_port_range     = "80"
-    source_address_prefix      = "*"
-    destination_address_prefix = "*"
-  }
-
-  security_rule {
     name                       = "allow-dns-outbound"
     priority                   = 120
     direction                  = "Outbound"
@@ -98,18 +86,6 @@ resource "azurerm_network_security_group" "bastion-nsg" {
     destination_port_range     = "53"
     source_address_prefix      = "*"
     destination_address_prefix = "168.63.129.16"
-  }
-
-  security_rule {
-    name                       = "allow-ntp-outbound"
-    priority                   = 130
-    direction                  = "Outbound"
-    access                     = "Allow"
-    protocol                   = "Udp"
-    source_port_range          = "*"
-    destination_port_range     = "123"
-    source_address_prefix      = "*"
-    destination_address_prefix = "*"
   }
 
   security_rule {
@@ -125,7 +101,7 @@ resource "azurerm_network_security_group" "bastion-nsg" {
   }
 
   security_rule {
-    name                       = "explicit-deny-all-inbound"
+    name                       = "deny-all-inbound"
     priority                   = 1000
     direction                  = "Inbound"
     access                     = "Deny"
@@ -318,7 +294,6 @@ resource "azurerm_key_vault" "kv" {
   public_network_access_enabled = false
 }
 
-# TODO: when configuring AKS itself change this to federated credentials
 resource "azurerm_role_assignment" "kv_aks_csi" {
   scope                = azurerm_key_vault.kv.id
   role_definition_name = "Key Vault Secrets User"
@@ -364,29 +339,6 @@ resource "azurerm_role_assignment" "aks_rbac_admin_group" {
 #   principal_id         = azurerm_linux_virtual_machine.bastion-vm.identity[0].principal_id
 # }
 #
-
-resource "azurerm_user_assigned_identity" "workload" {
-  for_each            = var.workload_identities
-  name                = "id-${each.key}"
-  resource_group_name = azurerm_resource_group.rg.name
-  location            = azurerm_resource_group.rg.location
-}
-
-resource "azurerm_federated_identity_credential" "workload" {
-  for_each                  = var.workload_identities
-  name                      = "fed-${each.key}"
-  audience                  = ["api://AzureADTokenExchange"]
-  issuer                    = azurerm_kubernetes_cluster.aks.oidc_issuer_url
-  subject                   = "system:serviceaccount:${each.value.namespace}:${each.value.service_account}"
-  user_assigned_identity_id = azurerm_user_assigned_identity.workload[each.key].id
-}
-
-resource "azurerm_role_assignment" "workload_kv" {
-  for_each             = var.workload_identities
-  scope                = azurerm_key_vault.kv.id
-  role_definition_name = "Key Vault Secrets User"
-  principal_id         = azurerm_user_assigned_identity.workload[each.key].principal_id
-}
 
 # resource "azurerm_public_ip" "pip" {
 #   name                = "bastion-pip-${local.base_sufix}"

@@ -13,15 +13,6 @@ variable "kv_secret_admin_group_object_id" {
   description = "Entra ID Key Vault admins group Object ID"
 }
 
-variable "workload_identities" {
-  description = "Map of application which will be assigned its own Workload Identity"
-  type = map(object({
-    namespace       = string
-    service_account = string
-  }))
-  default = {}
-}
-
 variable "location" {
   description = "Location to deploy resources to"
   type        = string
