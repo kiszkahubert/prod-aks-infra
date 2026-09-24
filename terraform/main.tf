@@ -188,7 +188,6 @@ resource "azurerm_network_security_group" "aks-nsg" {
     destination_port_range     = "*"
     source_address_prefix      = "AzureLoadBalancer"
     destination_address_prefix = "*"
-    destination_address_prefix = "*"
   }
 
   security_rule {
