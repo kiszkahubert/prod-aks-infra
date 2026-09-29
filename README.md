@@ -129,4 +129,25 @@ az ad group member add --group "aks-admins" --member-id "$MY_ID"
 az ad group member add --group "kv-secrets-admins" --member-id "$MY_ID"
 ```
 
-Now lets move towards AKS configuration.
+Now lets move towards AKS configuration. Main configuration point is that `private_cluster_enabled` is set to `true` that means that API server has only private IP address in VNet and there is no way to connect from public Internet. AKS creates Private Endpoint to API server and private DNS zone assigned to VNet. Thats why previously mentioned connection methods are required. Parameter `local_account_disabled` disable local admin account so the only way to communicate with API server is to authenticate with Entra ID. Block `azure_active_directory_role_based_access_control` activates this authentication with Entra ID also parameter `azure_rbac_enabled` set to true makes all the authorization go through Azure RBAC, so there is no need of creating `ClusterRoleBinding` in YAML. But with this configuration new problem arise, without any role assignment any user would not be able to pull `kubeconfig` or invoke any `kubectl` commnand. Thats why those 2 roles were created:
+1. `aks_cluster_user_group` - assigns `Azure Kubernetes Service Cluster User` role to previously created `aks-admins` group. This role allows to pull the kubeconfig with `az aks get-credentials`
+2. `aks_rbac_admin_group` - assigns `Azure Kubernetes Service RBAC Cluster Admin` role to previously created `aks-admins` group. This role gives full rights within Kubernetes cluster.
+
+Cluster has Managed Identity created by `identity { type = "SystemAssigned" }` which is used to create Azure Resources like load balancer, public IP on behalf of admin. Moreover AKS has turned on options that makes sense in prod environment like `image_cleaner_interval_hours` that cleans node of unused images, `automatic_upgrade_channel` does what it says it upgrades kubernetes version automaticaly. Channel `stable` says it should get a newest patch of version `Minor - 1` and block `maintenance_window_auto_upgrade` decides when this update should take place like in this case Weekly on Sunday 3am. Moreover `node_os_upgrade_channel` set to `NodeImage` is used to automatically update node OS. Block `node_provisioning_profile` disable `Karpenter` and block `key_vault_secrets_provider` enables `Secrets Store CSI Driver` and creates its identity in cluster. Most important block here is `network_profile`. It defines how pods gets the IP addres (Azure CNI Overlay), who sends the traffic (cilium) and who takes care of network rules (cilium). `Azure CNI Overlay` unlike its predecessor does not utlize the subnet from AKS VNet it needs different network defined by `pod_cidr` which in this case is `10.2.0.0/16`. Parameter `service_cidr` defines the range of ips that can be assigned to Service type `ClusterIP` and parameter `outbound_type` defines that egress from AKS cluster will travel through standard Load Balancer. In the block `advanced_networking` are defined two configuration options. First which is `observability_enabled` enables Hubble which is a registry of network traffic, it allowed me to solve issue on which later. Second parameter allows for extended cilium policies. Cluster have 2 nodepools system one and user node pool that holds all the applications. Within Azure Infrastruture ingress and egress to AKS was limited with Network Security Group with following rules:
+
+|Rule Name|Priority|Purpose|
+|---------|--------|-------|
+|allow-aks-internal-inbound|100|Allow traffic betwen nodes|
+|allow-pod-cidr-inbound|105|Allow traffic between pods on different nodes|
+|allow-lb-inbound|120|Allow Load Balancer to cluster|
+|allow-http-inbound|130|Allow access to Load Balancer apps|
+|deny-all-vnet-inbound|1000|block the access from the VNet|
+
+## Kubernetes
+Introduction
+
+## ArgoCD
+
+## Cillium
+
+## Kyverno

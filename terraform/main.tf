@@ -206,7 +206,6 @@ resource "azurerm_kubernetes_cluster" "aks" {
   resource_group_name          = azurerm_resource_group.rg.name
   location                     = azurerm_resource_group.rg.location
   dns_prefix                   = "aks"
-  oidc_issuer_enabled          = true
   private_cluster_enabled      = true
   local_account_disabled       = true
   automatic_upgrade_channel    = "stable"
