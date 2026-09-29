@@ -12,6 +12,8 @@ The goal of this project was to create production level infrastructure for Kuber
 8. Kyverno policies
 9. Terraform
 
+![](readme-imgs/1.png)
+
 ## Init steps
 Infrastructure has been provisioned using Terraform which is an IaC tool allowing for repeatable and quick provisioning from configuration file. To achieve best prod standards state file has been stored in remote backend (Azure Storage Account) utilizing commands bellow. 
 
@@ -87,8 +89,34 @@ az aks get-credentials \ #Get kubeconfig file
   --overwrite-existing
 kubelogin convert-kubeconfig -l msi #Instructs kubectl to obtain token for Managed Identity, without this each request would end up with HTTP 403
 ```
+Before explaining main part which is AKS lets explain Azure Container Registry and Key Vault configuration. ACR needs globaly unique name so it gets a random suffix appended to name to achieve that. First idea was to obtain access to ACR from AKS with private endpoints but as stated in the comment in code such solution would require to use most expensive SKU which is the only one that supports private communication. So not so ideally all the communication with ACR takes place over the public Internet. ACR will be the only available place from which AKS can pull images (except those needed to create core resources like ArgoCD). It also has set `admin_enabled = false` so authorization can only take place using Entra ID. In order for AKS to pull images from ACR role `aks_acr_pull` was created. It works like this:
+1. Pod needs an image form *.azurecr.io registry
+2. **Kubelet** asks (utlizing built in ACR credential provider) for an Entra ID token on behalf of **kubelet identity**
+3. Token is exchanged in ACR for registry token
+4. ACR checks in Azure RBAC whether this identity has a **pull** authorization and gives the image
 
-# Entra ID
+It is worth mentioning that there is no `imagePullSecrets` in application manifests, authentication takes place on node level not on pod level. Also `skip_service_principal_aad_check = true` resolves issue with checking whether kubelet indetity exists on first apply. Without the flag there will be an issue as kubelet indentity is being created with cluster but replication in Entra ID is delayed.
+
+Moving forward to Key Vault which is quite the opposite as it is completely isolated form the public Internet. It will be used to securely store secrets from AKS which will access it via private endpoint in `kv-subnet`. Key Vault resource has prety self explanatory configuration, the `purge_protection_enabled` set to `false` is not ideal in prod environment but its is necessary to easily delete infrastructure. SKU was set to `standard` as in contrary to ACR all KV SKUs allows to utilize Private Endpoints that are created with resource `azurerm_private_endpoint`. All it does bascially is to create NIC with private IP in `kv-subnet` which leads to Key Vault. However creating only Private endpoint would not work. Applications connect to **FQDN** `kv-dev-weu-01-xssg.vault.azure.net` which in public DNS would resolve to public IP. So te mechanism is needed that would allow to resolve mentioned **FQDN** to private IP of Key Vault. For that we need three resources:
+1. `azurerm_private_dns_zone` - it creates private DNS zone and creates **CNAME** record basicaly translating `kv-dev-weu-01-xsg.vault.azure.net` -> CNAME -> `kv-dev-weu-01-xssg.privatelink.vaultcore.azure.net`
+2. `azurerm_private_dns_zone_virtual_network_link` - it informs Azure DNS Resolver (168.63.129.16) that queries from `vnet-01` have to include this zone.
+3. `private_dns_zone_group` - it orders Private Endpoint to create A record `kv-dev-weu-01-xssg A 10.0.4.4`
+
+To better understand lets see it on example:
+1. Pod in AKS want to connect to Key Vault. It only knows the name `kv-dev-weu-01-xssg.vault.azure.net` but does not know the IP so it has to ask DNS first.
+2. Pod asks **CoreDNS** which is available on `dns_service_ip` in this case `10.1.0.10`
+3. **CoreDNS** only resolves names inside cluster (**cluster.local**) but Key Vault name is not one of them so it forwards query to DNS server used by node itself.
+4. Node asks **Azure resolver** which is available on `168.63.129.16`
+5. Resolver checks the Key Vault name in public DNS however as it utilize Private Endpoint it does not return **A record** but **CNAME** which in this case is `kv-dev-weu-01-xssg.privatelink.vaultcore.azure.net`
+6. Resolver sees theprivate DNS Zone `privatelink.vaultcore.azure.net` and sees that in this zone there is **A record**.
+7. Address from **A record** comes back back the same way which is: Azure Resolver -> node -> CoreDNS (caches it with TTL) -> pod.
+8. Pod connects to the private IP address of Key Vault.
+
+Moreover to admins and AKS to be able to manage and read secrets we need two assign two roles:
+1. `kv_aks_csi` with role `Key Vault Secrets User`. It is used for AKS to be able to **ONLY** read secrets from Key Vault. More specifically it allows `principal_id` to do this and in this case this is **Secrets Store CSI Driver add-on**
+2. `kv_admin_group ` with role `Key Vault Secrets Officer`. In this case it is group assigned not to one specific person. It is better solution as we can add and remove admins from group without ever changing terraform configuration. This specific role allows to read, edit and delete secrets in Key Vault.
+
+To create new Entra ID groups and assign users to those groups we can utilize those commands
 ```
 az ad group create --display-name "aks-admins" --mail-nickname "aks-admins"
 az ad group create --display-name "kv-secrets-admins" --mail-nickname "kv-secrets-admins"
@@ -100,3 +128,5 @@ MY_ID=$(az ad signed-in-user show --query id -o tsv)
 az ad group member add --group "aks-admins" --member-id "$MY_ID"
 az ad group member add --group "kv-secrets-admins" --member-id "$MY_ID"
 ```
+
+Now lets move towards AKS configuration.

@@ -207,7 +207,6 @@ resource "azurerm_kubernetes_cluster" "aks" {
   location                     = azurerm_resource_group.rg.location
   dns_prefix                   = "aks"
   oidc_issuer_enabled          = true
-  workload_identity_enabled    = true
   private_cluster_enabled      = true
   local_account_disabled       = true
   automatic_upgrade_channel    = "stable"
@@ -230,7 +229,7 @@ resource "azurerm_kubernetes_cluster" "aks" {
     os_disk_type    = "Ephemeral"
     os_disk_size_gb = 30
     vnet_subnet_id  = azurerm_subnet.aks-subnet.id
-    # only_critical_addons_enabled = true - would have that with userpool
+    only_critical_addons_enabled = true
   }
 
   identity {
