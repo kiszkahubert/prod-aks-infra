@@ -143,11 +143,29 @@ Cluster has Managed Identity created by `identity { type = "SystemAssigned" }` w
 |allow-http-inbound|130|Allow access to Load Balancer apps|
 |deny-all-vnet-inbound|1000|block the access from the VNet|
 
-## Kubernetes
-Introduction
+## Kubernets Cluster
+Proposed solution utilize GitOps approach to deploying workloads onto AKS cluster with tool called **ArgoCD**. For preparing cluster to work with argo are responsilbe bash scripts from **bootstrap** folder. All of them were run on jump host when it existed. The first one called `00-install-prereq.sh` simply installs helm, jq and ArgoCD CLI which frankly I was supposed to use but I have not. The `01-create-github-deploy-key.sh` script is used to create GitHub deploy key which is added also to Key Vault, it allows ArgoCD to authenticate against GitHub repo and pull changes from it. In this case its not needed as repo is public but if it would be private one day such script and later described configuration would be necessary. The `02-install-argocd.sh` script is self explanatory. It creates namespace namespace for ArgoCD and then label it with PSA rules. Then helm adds argocd repo and install it with `argocd-values.yml` and prints out admin password to web ArgoCD GUI. Lets go through and explain each setting in argocd-values.yml
 
-## ArgoCD
+|Setting|Value|Explanation|
+|-------|-----|-----------|
+|global.securityContext|runAsNonRoot, seccompProfile: RuntimeDefault| Pods needs to pass PSA restricted in ArgoCD|
+|configs.params.server.insecure|false|ArgoCD server use self-signed certs to encrypt traffic|
+|configs.cm.admin.enabled|true|Allow to login with password previously printed|
+|configs.cm.exec.enabled|false|Deny access to containers via ArgoCD web gui|
+|configs.cm.timeout.reconcilation|180s|Time after which ArgoCD would check repo for changes|
+|configs.rbac.policy.default|role:readonly|Basic role for everyone that has no other role assigned|
+|applicationSet.enabled|false|Application resources are write manually in this case|
+|dex.enabled|false|dex is an authentication proxy that is used when OIDC cannot be used so not needed in this case|
+|notifications.enabled|false|No need for notifications right now|
+|server||API and web GUI for ArgoCD|
+|repoServer||used to clone repository|
+|controller||main component of ArgoCD that compares current cluster state with this held in git repository and synchronize the difference|
+|redis||stores cached data for controller and server|
+|redisSecretInit||job that launches before installation and update of chart|
 
-## Cillium
 
-## Kyverno
+### ArgoCD
+
+### Cillium
+
+### Kyverno

@@ -11,10 +11,6 @@ configs:
     admin.enabled: "true"
     exec.enabled: "false"
     timeout.reconciliation: 180s
-    resource.exclusions: |
-      - apiGroups: ["cilium.io"]
-        kinds: ["CiliumIdentity", "CiliumEndpoint"]
-        clusters: ["*"]
   rbac:
     policy.default: role:readonly
 
