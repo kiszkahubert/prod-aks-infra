@@ -163,9 +163,49 @@ Proposed solution utilize GitOps approach to deploying workloads onto AKS cluste
 |redis||stores cached data for controller and server|
 |redisSecretInit||job that launches before installation and update of chart|
 
-
+Last script from bootstrap directory called `03-bootstrap-root-app.sh`. What it does basically is to take env variables and edit `argocd-repo-secretproviderclass.yml` file placing real values into template and then apply this changed template. This mechanism here is required so ArgoCD can safely pull information about git repository and ssh private key which it can use to authenticate. This YAML file is used to configure Secrets Store CSI Driver. It is required because Kubernetes itself cannot read data from Azure Key Vault. Without CSI driver we would need to create secrets manualy by `kubectl create secret` or use **External Secrets Operator** which would be a better solution in my case. It is because **CSI** was designed in order for application itself to mount volume and read secrets on the pod level without creating it as a Kubernetes Secret on node level and **External Secrets Operator** creates secret on node level only. So in this case using **CSI** needed workaround. **CSI** does not do anything by itself, it needs a triger like one when pod mounts the volume pointing to **SecretProviderClass**. In this case Deployment was created with image `mcr.microsoft.com/oss/kubernetes/pause:3.9` which just waits. Solution before change was based on `Pod` but it did not make sense cuz if pod was removed the secret was gone with it and everything stoped working and obiously `Deployment` takes care of required replicas. It has `securityContext` settings so it can pass PSA check. There is also resource of type `SecretProviderClass` it tells CSI how and from it should pull this secret. `provider` parameter tells CSI that it should use plugin for Azure Key Vault. `parameters` part defines how to authenticate and what to pull and `secretObjects` defines what to do with pulled values. On default it would only pull tose secrets and mount them as file in pod like `/mnt/secrets/<secret-name>`. However in this case it orders to create Secret object in kubernetes of name `argocd-gitops-repo-creds` and also labels it with `argocd.argoproj.io/secret-type: repository` which allows ArgoCD to find this secret.
 ### ArgoCD
+ArgoCD utilize app-of-apps pattern which can be seen on image bellow. It means that there is only one Application manifest applied which is the root and other manifests apply automaticaly as they are tracked by root element. Then each child Application sync its own manifests from `manifests/` folder. This is better solution than one big Application manifest that has every Application inside because it allows to see status of each application itself and configure them differently if needed. Every application is synced correctly instead of kyverno and frankly I dont get why. It works fine but for some reason I cant figure out it always has `sync status` set to `OutOfSync`
 
-### Cillium
+```bash
+hubert@fedora:~$ azk kubectl get applications -n argocd
+```
+
+| NAME                 | SYNC STATUS | HEALTH STATUS |
+|----------------------|-------------|---------------|
+| envoy-gateway        | Synced      | Healthy       |
+| envoy-gateway-crds   | Synced      | Healthy       |
+| gateway              | Synced      | Healthy       |
+| kyverno              | OutOfSync   | Healthy       |
+| kyverno-policies     | Synced      | Healthy       |
+| namespaces           | Synced      | Healthy       |
+| network-policies     | Synced      | Healthy       |
+| root                 | Synced      | Healthy       |
+| workloads            | Synced      | Progressing   |
+
+![](readme-imgs/2.png)
+### PSA
+Pod Security Admission is built in Kubernetes mechanism which denies creation of pods with dangerous settings. As it is native solution its free in cost of money and resources on nodes. It has three different levels:
+|level|blocking|
+|-----|--------|
+|privileged|nothing|
+|baseline|privileged containers, `hostPath` volumes, adding Linux Capabilities different than default, disabling seccomp|
+|restricted|containers must be run as root, privilege escalation is disabled, container has all Linux Capabilities dropped|
+
+Each level can be checked on three different levels, `enforce` blocks creation of resource, `audit` allow to create resource but creates log in API server logs and `warn` just gives warning when excecuting `kubectl` but allows to create resource. It is also worth remember that `enforce` checks only pods not Deployments. So if there exists non compliant Deployment it will be created but there will be no available replicas. However although PSA seems like complete solution it lacks option to create own policies that is why in this project it was suplemented with Kyverno
 
 ### Kyverno
+Kyverno is an admission controller, with creation or modification of Kubernetes object API sever asks admission controller for approval on those operations based on defined policies. It can work as a **ValidatingWebhook** as well as **MutatingWebhook** however in this case I was using only validation. Kyverno is managed by ArgoCD that creates and updates it using helm chart and values from `manifests/kyverno/values.yml`. Lets explain configuration options from this file
+|Setting|Value|Reason|
+|-------|-----|------|
+|admissionController||Main resource of kyverno to which API Server sends all the validating queries|
+|admissionController.serviceMonitor.enabled|false|Prometheus Operator object that tells Prometheus how to gather metrics, as it was not used in my case its turned off|
+|backgroundController.enabled|false|Its used with mutating policies, as I dont use them I dont need this|
+|cleanupController.enabled|false|Deletes resources based on schedule. Not needed here allows to save some resources|
+|reportsController.enabled|false|If enabled it would create PolicyReport objects that I dont need|
+|webhooksCleanup.enabled|true|On uninstalling chart it runs a job which removes Kyverno webhook configuration from API Server|
+|config.webhooks.failurePolicy|fail|Defines what API server should do if Kyverno does not respond, in this case it should drop all calls|
+|config.webhooks.namespaceSelector||Defines from what namespaces API Server should (in this case should not) send validating requests to Kyverno|
+
+
+### Cillium

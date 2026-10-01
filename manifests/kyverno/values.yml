@@ -7,11 +7,7 @@ admissionController:
     enabled: false
 
 backgroundController:
-  enabled: true
-  replicas: 1
-  resources:
-    requests: { cpu: 30m, memory: 64Mi }
-    limits: { cpu: 150m, memory: 128Mi }
+  enabled: false
 
 #Settings to save resources on poor clusters
 cleanupController:
