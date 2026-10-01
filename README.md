@@ -184,6 +184,7 @@ hubert@fedora:~$ azk kubectl get applications -n argocd
 | workloads            | Synced      | Progressing   |
 
 ![](readme-imgs/2.png)
+![](readme-imgs/3.png)
 ### PSA
 Pod Security Admission is built in Kubernetes mechanism which denies creation of pods with dangerous settings. As it is native solution its free in cost of money and resources on nodes. It has three different levels:
 |level|blocking|
@@ -206,6 +207,19 @@ Kyverno is an admission controller, with creation or modification of Kubernetes 
 |webhooksCleanup.enabled|true|On uninstalling chart it runs a job which removes Kyverno webhook configuration from API Server|
 |config.webhooks.failurePolicy|fail|Defines what API server should do if Kyverno does not respond, in this case it should drop all calls|
 |config.webhooks.namespaceSelector||Defines from what namespaces API Server should (in this case should not) send validating requests to Kyverno|
+|crds.install|true|Chart install Kyverno CRDs|
+|features.autoUpdateWebhooks.enabled|true|Enabling this make Kyverno configure webhooks to policies so only resources in this case pods are tracked and not any other resource. In result this reduce load on Kyverno|
 
+Okay so this will be it about the Kyverno installation. Previousl policies were configured using `ClusterPolicy` however in Kyverno version 1.19 this resource is marked as deprecated and new solution has been introduced called `ValidatingPolicy`. Its far easier to use solution as previously everything was configured in pure YAML now it is written in CEL. In cluster there were created 4 policies:
+|Policy name|Description|
+|-----------|-----------|
+|require-resource-requests-limits|Pods cannot be created with properly set resource and limits so they will not starve other pods|
+|disallow-latest-tag|It disallow using latest tags with containers|
+|restrict-image-registries|Images can only be pulled from previously describe ACR registry|
+|disallow-default-namespace|No pods can be created in default namespace|
+
+Example that those policies work can be seen below. After ArgoCD was constantly running out of memory and was constantly OOMKILLED I had to change limits for controller but no requests and limits were set for redisSecretInit so I have recieved error triggered by Kyverno policy that all pods needs to have requests and limits specified.
+![](readme-imgs/4.png)
 
 ### Cillium
+By default in Kubernetes all pods can talk with each other. Configured policies denies 
