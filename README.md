@@ -233,6 +233,7 @@ By default in Kubernetes all pods can talk with each other. Configured policies 
 |06-argocd-kyverno-chart-egress.yml|Allows to pull chart from ArgoCD Helm repository which is needed to install ArgoCD on cluster|
 |07-workload-web-ingres.yml|Allows web-gateway Envoy Gateway to get Ingress from internet and pass it through to web applications|
 |08-argocd-dockerhub-egress.yml|Allows to pull Envoy Gateway chart which lies on DockerHub, I needed few tries to get FQDNs right and here hubble was helpful which will be shown below|
+
 ![](readme-imgs/5.png)
 
 ### Workloads
